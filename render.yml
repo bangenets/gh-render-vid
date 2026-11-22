@@ -1,0 +1,41 @@
+name: render-test
+# Tes render video 3D code-drawn di GitHub Actions (gratis, repo publik).
+# Jalankan manual: Actions tab -> render-test -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: 'Durasi video (detik)'
+        required: false
+        default: '5'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright + Chromium
+        run: |
+          npm install playwright
+          npx playwright install --with-deps chromium
+      - name: Render frames + encode
+        env:
+          SECONDS: ${{ inputs.seconds }}
+        run: |
+          python3 -m http.server 8901 --bind 127.0.0.1 > server.log 2>&1 &
+          SERVER_PID=$!
+          sleep 2
+          node render.mjs
+          kill $SERVER_PID || true
+          ffmpeg -y -framerate 30 -i frames/frame_%04d.png -c:v libx264 -pix_fmt yuv420p -movflags +faststart out/test.mp4
+          ffprobe -v error -show_entries format=duration -of csv=p=0 out/test.mp4
+      - name: Upload hasil
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-video
+          path: out/test.mp4
+          retention-days: 7
