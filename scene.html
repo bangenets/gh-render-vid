@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Render test — diorama gunung berapi</title>
+<style>html,body{margin:0;padding:0;background:#3a2b4f;overflow:hidden}</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.187.0/build/three.module.js"}}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+
+// Diorama mini 5 detik, niche acak: GUNUNG BERAPI MELETUS.
+// Langit senja, gunung di tengah, lava mengalir turun, asap naik,
+// desa kecil di kaki gunung, satu villager lari menjauh.
+// Scene sebagai fungsi murni waktu — pola yang sama dipakai render hidram di VPS.
+const W = 720, H = 1280;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(W, H);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x3a2b4f);
+
+const camera = new THREE.PerspectiveCamera(65, W / H, 0.1, 100);
+camera.position.set(0, 9, 11);
+camera.lookAt(0, 1.8, 0);
+
+scene.add(new THREE.AmbientLight(0xffe0b8, 0.75));
+const sun = new THREE.DirectionalLight(0xff9a5c, 1.4);
+sun.position.set(-6, 8, 6);
+scene.add(sun);
+
+const mat = (c) => new THREE.MeshLambertMaterial({ color: c });
+const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
+
+// Tanah berbatu gelap
+const ground = new THREE.Mesh(new THREE.BoxGeometry(13, 0.4, 9), mat(0x4a3f3a));
+ground.position.set(0, -0.2, 0);
+scene.add(ground);
+
+// Gunung berapi: kerucut besar di tengah
+const volcano = new THREE.Mesh(new THREE.ConeGeometry(3.2, 4.6, 24), mat(0x5a463e));
+volcano.position.set(0, 2.1, -0.8);
+scene.add(volcano);
+
+// Kawah menyala di puncak (cakram oranye, berdenyut)
+const crater = new THREE.Mesh(
+  new THREE.CircleGeometry(0.85, 24),
+  glow(0xff6a00)
+);
+crater.rotation.x = -Math.PI / 2;
+crater.position.set(0, 4.42, -0.8);
+scene.add(crater);
+const craterInner = new THREE.Mesh(
+  new THREE.CircleGeometry(0.45, 24),
+  glow(0xffd23f)
+);
+craterInner.rotation.x = -Math.PI / 2;
+craterInner.position.set(0, 4.45, -0.8);
+scene.add(craterInner);
+
+// Aliran lava: pita oranye menuruni lereng depan gunung
+const lavaStream = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.6, 0.08), glow(0xff7a1a));
+lavaStream.position.set(0.4, 2.2, 1.35);
+lavaStream.rotation.x = 0.62;
+scene.add(lavaStream);
+const lavaPool = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.2, 0.12, 20), glow(0xff5a00));
+lavaPool.position.set(0.7, 0.06, 2.6);
+scene.add(lavaPool);
+
+// Tetes lava: 14 bola oranye mengalir turun mengikuti lereng
+const drops = [];
+for (let i = 0; i < 14; i++) {
+  const d = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), glow(0xffa02e));
+  scene.add(d);
+  drops.push(d);
+}
+
+// Asap: 8 bola abu-abu naik dari kawah, membesar + memudar
+const puffs = [];
+for (let i = 0; i < 8; i++) {
+  const m = new THREE.MeshLambertMaterial({ color: 0x9a8f9a, transparent: true, opacity: 0.85 });
+  const p = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), m);
+  scene.add(p);
+  puffs.push(p);
+}
+
+// Desa kecil di kaki gunung: 3 rumah
+function house(x, z, c) {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.8), mat(0xf6e3c5));
+  b.position.y = 0.35;
+  g.add(b);
+  const r = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.55, 4), mat(c));
+  r.position.y = 0.95;
+  r.rotation.y = Math.PI / 4;
+  g.add(r);
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+house(-3.6, 2.4, 0xd96a5f);
+house(-2.4, 3.2, 0x5f8fd9);
+house(3.4, 2.6, 0x7fb35a);
+
+// Dua pohon palem sederhana
+function palm(x, z) {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1.4, 8), mat(0x8d6e63));
+  trunk.position.y = 0.7;
+  g.add(trunk);
+  const top = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), mat(0x4e9b4e));
+  top.position.y = 1.6;
+  top.scale.y = 0.6;
+  g.add(top);
+  g.position.set(x, 0, z);
+  scene.add(g);
+}
+palm(-4.2, 0.6);
+palm(4.0, 0.8);
+
+// Villager: badan kapsul merah + kepala, lari menjauh dari gunung
+const villager = new THREE.Group();
+const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.5, 4, 12), mat(0xd94f3d));
+body.position.y = 0.55;
+villager.add(body);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(0xf2c9a0));
+head.position.y = 1.15;
+villager.add(head);
+scene.add(villager);
+
+// Fungsi murni waktu — dipanggil Playwright per frame
+window.renderAt = function (t) {
+  // Kawah berdenyut
+  const pulse = 1 + Math.sin(t * 5) * 0.12;
+  crater.scale.set(pulse, pulse, 1);
+  craterInner.scale.set(2 - pulse, 2 - pulse, 1);
+  // Tetes lava mengalir turun dari kawah ke kolam lava, loop
+  drops.forEach((d, i) => {
+    const q = ((t * 0.3 + i / 14) % 1);
+    d.position.set(0.4 + Math.sin(q * 3) * 0.08, 4.3 - q * 4.1, -0.8 + q * 3.3);
+  });
+  // Asap naik + membesar + memudar
+  puffs.forEach((p, i) => {
+    const q = ((t * 0.22 + i / 8) % 1);
+    p.position.set(Math.sin(i * 2.4) * 0.5 + q * 0.6, 4.5 + q * 3.2, -0.8 - q * 0.4);
+    const s = 0.5 + q * 1.6;
+    p.scale.set(s, s, s);
+    p.material.opacity = 0.85 * (1 - q);
+  });
+  // Villager lari menjauh ke kiri bawah, 0-4 dtk, badan membal
+  const p = Math.min(t / 4, 1);
+  villager.position.set(-1.2 - p * 2.6, 0.1 + Math.abs(Math.sin(t * 9)) * 0.12, 1.6 + p * 1.2);
+  // Kamera push-in pelan
+  camera.position.set(0, 9 - t * 0.15, 11 - t * 0.35);
+  camera.lookAt(0, 1.8, 0);
+  renderer.render(scene, camera);
+};
+window.renderAt(0);
+</script>
+</body>
+</html>
